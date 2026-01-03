@@ -26,7 +26,7 @@ Standard Mean-Variance optimization often produces unstable out-of-sample result
 ![RobustWorstCase](Images/OOS_RWC.png)
 
 > **Key Observation:**
-> * **Sharpe Ratio (Left):** The Robust portfolio (Pink) shifts the distribution of risk-adjusted returns to the right, demonstrating superior performance per unit of risk compared to the Naive approach (Purple).
+> * **Sharpe Ratio (Left):** The Robust portfolio (Pink) shifts the distribution of the Sharpe ratio to the right, demonstrating superior performance per unit of risk compared to the Naive approach (Purple).
 > * **Drawdown (Right):** The Robust method effectively truncates the "tail risk," resulting in significantly shallower maximum drawdowns.
 
 ### 2. Ensemble Methods
