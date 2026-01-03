@@ -64,7 +64,7 @@ RobustPortfolio/
 To install the package in use:
 
 ```bash
-git clone [https://github.com/KoperSloper/RobustPortfolio.git](https://github.com/KoperSloper/RobustPortfolio.git)
+git clone https://github.com/KoperSloper/RobustPortfolio.git
 cd RobustPortfolio
 pip install -e .
 ```
