@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Images/robustportfolio.png" width="500" title="RobustPortfolio Logo">
+  <img src="Images/robustportfolio_logo.png" width="500" title="RobustPortfolio Logo">
 </p>
 
 # RobustPortfolio
