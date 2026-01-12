@@ -1,4 +1,14 @@
+# Ignore local history and VS Code settings
 .history/
-__pycache__/
 .vscode/
-*.ipynb_checkpoints
+
+# Ignore Python system junk
+__pycache__/
+*.pyc
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Ignore temporary test/junk files you don't want on GitHub
+test.ipynb
+weights RWC.png
