@@ -2,6 +2,76 @@ import numpy as np
 import cvxpy as cp
 from scipy.linalg import sqrtm, cholesky
 
+import numpy as np
+import cvxpy as cp
+from scipy.linalg import sqrtm, cholesky
+
+def robust_sharpe_ellipsoid(mu_hat, Sigma_hat, tau, epsilon, kappa, S_mu, S_Sigma):
+    """
+    Solves the Robust Sharpe Ratio Maximization.
+    
+    Problem:
+        Max  (mu.T @ y - kappa * ||S_mu^0.5 y||) - tau * k
+        s.t. Tr(Sigma(Y+Z)) + epsilon * ||S_Sigma^0.5 vec(Y+Z)|| <= 1
+             [ Y   y ]
+             [ y.T k ] >> 0,  Z >> 0
+             sum(y) == k,  y >= 0
+    """
+    N = len(mu_hat)
+    
+    # Use Cholesky for speed, fallback to sqrtm if not pos-def
+    try:
+        S_mu_sqrt = np.array(cholesky(S_mu))
+        S_Sigma_sqrt = np.array(cholesky(S_Sigma))
+    except:
+        S_mu_sqrt = np.array(sqrtm(S_mu))
+        S_Sigma_sqrt = np.array(sqrtm(S_Sigma))
+
+    # variables
+    y = cp.Variable((N, 1))
+    k = cp.Variable(nonneg=True)
+    Y = cp.Variable((N, N), symmetric=True)
+    Z = cp.Variable((N, N), PSD=True)
+    
+    g_mean = cp.Variable(nonneg=True) # Slack for mean penalty
+    g_cov  = cp.Variable(nonneg=True) # Slack for cov penalty
+
+    vec_YZ = cp.reshape(cp.vec(Y) + cp.vec(Z), (-1, 1))
+    
+    # Robust Return (Numerator terms)
+    ret_term = mu_hat.T @ y - kappa * g_mean
+    
+    # Robust Risk (Denominator terms)
+    risk_term = cp.trace(Sigma_hat @ (Y + Z)) + epsilon * g_cov
+
+    constraints = [
+        # SOCPs for uncertainties
+        cp.SOC(g_mean, S_mu_sqrt.T @ cp.vec(y)),
+        cp.SOC(g_cov, S_Sigma_sqrt.T @ vec_YZ),
+        
+        # LMI for Sharpe transformation
+        cp.bmat([[Y, y], [y.T, cp.reshape(k, (1, 1))]]) >> 0,
+        
+        # Risk Normalization
+        risk_term <= 1,
+        
+        # Portfolio Constraints (scaled by k)
+        cp.sum(y) == k,
+        y >= 0
+    ]
+
+    prob = cp.Problem(cp.Maximize(ret_term - tau * k), constraints)
+    prob.solve() 
+
+    if prob.status not in ["optimal", "optimal_inaccurate"] or k.value is None:
+        return np.ones(N)/N
+
+    assert y.value is not None, "Optimization failed"   
+    w = np.maximum(y.value.flatten(), 0)
+    
+    return w / np.sum(w)
+
+
 def robust_mvo_general_ellipsoid(mu_hat, Sigma_hat, lam, epsilon, kappa, S_mu, P_shape):
     """
     Solves the Robust Mean-Variance Optimization (MVO) using the General SDP formulation.
@@ -258,3 +328,4 @@ def robust_mvo_box(mu_hat, delta, Sigma_lower, Sigma_upper, lam):
     w_final[w_final < 1e-6] = 0
 
     return w_final / np.sum(w_final)
+
