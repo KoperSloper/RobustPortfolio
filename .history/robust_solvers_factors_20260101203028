@@ -1,0 +1,76 @@
+import cvxpy as cp
+import numpy as np
+
+def robust_gmvp_factor_model(Pi_hat, D_upper_diag, delta):
+    """
+    Solves the Robust Global Minimum Variance Portfolio (GMVP) using a Factor Model.
+    
+    Problem Formulation:
+    --------------------
+    Minimize:   ( || Pi_hat @ w ||_2 + delta * || w ||_2 )^2  +  w.T @ diag(D_upper) @ w
+    Subject to: sum(w) == 1
+                w >= 0
+    
+    This corresponds to the worst-case variance where:
+      - Factor loadings (Pi) lie in a spherical uncertainty set with radius 'delta'.
+      - Residual variances (D) lie in a box set with upper bound 'D_upper'.
+    
+    Parameters:
+    -----------
+    Pi_hat : (K, N) array
+        The estimated factor loading matrix (K factors, N assets).
+    D_upper_diag : (N,) array
+        The vector of upper bounds for the residual variances.
+    delta : float
+        The uncertainty radius for the factor loadings.
+        
+    Returns:
+    --------
+    w : (N,) array
+        Optimal portfolio weights.
+    """
+    K, N = Pi_hat.shape
+
+    w = cp.Variable(N)
+    
+    # 2. Define Terms for the Objective
+    
+    # Term A: Worst-Case Factor Risk 
+    nominal_factor_risk = cp.norm(Pi_hat @ w, 2)
+    uncertainty_penalty = delta * cp.norm(w, 2)
+    total_factor_std = nominal_factor_risk + uncertainty_penalty
+    
+    # Term B: Worst-Case Idiosyncratic Risk
+    # Math: w^T \overline{D} w
+    # Since D is diagonal, this is equivalent to sum( d_i * w_i^2 )
+    # We use sum_squares( sqrt(d) * w ) for better numerical stability in solvers
+    D_sqrt = np.sqrt(D_upper_diag)
+    idiosyncratic_variance = cp.sum_squares(cp.multiply(D_sqrt, w))
+    
+    # 3. Construct Objective
+    # Minimize: (Factor_Std)^2 + Idiosyncratic_Var
+    obj = cp.Minimize(cp.square(total_factor_std) + idiosyncratic_variance)
+    
+    # 4. Constraints
+    constraints = [
+        cp.sum(w) == 1,
+        w >= 0
+    ]
+    
+    # 5. Solve
+    prob = cp.Problem(obj, constraints)
+    
+    try:
+        # ECOS or CLARABEL are best for SOCP problems
+        prob.solve(solver=cp.CLARABEL, verbose=False)
+    except:
+        prob.solve(solver=cp.SCS, verbose=False)
+        
+    if w.value is None:
+        print("Optimization Failed.")
+        return np.ones(N)/N
+        
+    # Clean small numerical noise
+    w_final = w.value
+    w_final[w_final < 1e-6] = 0
+    return w_final / np.sum(w_final)
